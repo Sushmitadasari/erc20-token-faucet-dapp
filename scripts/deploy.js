@@ -1,5 +1,7 @@
-const hre = require("hardhat");
-const fs = require("fs");
+import hre from "hardhat";
+import fs from "fs";
+
+const { ethers } = hre;
 
 async function main() {
   console.log("🚀 Starting deployment...");
@@ -9,19 +11,22 @@ async function main() {
 
   // 1️⃣ Deploy Token
   const Token = await ethers.getContractFactory("MyToken");
-  const token = await Token.deploy(deployer.address); // pass deployer as minter for now
-  console.log("Token deployed at:", token.target); // ethers v6 uses .target
+  // Deploy token with placeholder faucet address; grant faucet role after deployment
+  const token = await Token.deploy(ethers.ZeroAddress);
+  await token.waitForDeployment();
+  console.log("Token deployed at:", token.target);
 
   // 2️⃣ Deploy Faucet
   const TokenFaucet = await ethers.getContractFactory("TokenFaucet");
   const faucet = await TokenFaucet.deploy(token.target);
+  await faucet.waitForDeployment();
   console.log("Faucet deployed at:", faucet.target);
 
  // 3️⃣ Grant MINTER_ROLE to Faucet
-const MINTER_ROLE = ethers.keccak256(ethers.toUtf8Bytes("MINTER_ROLE"));
-const tx = await token.grantRole(MINTER_ROLE, faucet.target);
-await tx.wait();
-console.log("🔑 Mint role granted to Faucet");
+  const MINTER_ROLE = await token.MINTER_ROLE();
+  const tx = await token.grantRole(MINTER_ROLE, faucet.target);
+  await tx.wait();
+  console.log("🔑 Mint role granted to Faucet");
 
 
   // 4️⃣ Save addresses for frontend
@@ -32,20 +37,25 @@ console.log("🔑 Mint role granted to Faucet");
   fs.writeFileSync("deployment-addresses.json", JSON.stringify(addresses, null, 2));
   console.log("Addresses saved to deployment-addresses.json");
 
-  console.log(" Waiting 30s before verification...");
-  await new Promise((r) => setTimeout(r, 30000));
+  const isLiveNetwork = !["hardhat", "localhost"].includes(hre.network.name);
+  if (isLiveNetwork) {
+    console.log(" Waiting 30s before verification...");
+    await new Promise((r) => setTimeout(r, 30000));
 
-  await hre.run("verify:verify", {
-    address: token.target,
-    constructorArguments: [deployer.address],
-  });
+    await hre.run("verify:verify", {
+      address: token.target,
+      constructorArguments: [ethers.ZeroAddress],
+    });
 
-  await hre.run("verify:verify", {
-    address: faucet.target,
-    constructorArguments: [token.target],
-  });
+    await hre.run("verify:verify", {
+      address: faucet.target,
+      constructorArguments: [token.target],
+    });
 
-  console.log(" Contracts verified on Etherscan");
+    console.log(" Contracts verified on Etherscan");
+  } else {
+    console.log(`Skipping Etherscan verification on network: ${hre.network.name}`);
+  }
 }
 
 main().catch((error) => {
