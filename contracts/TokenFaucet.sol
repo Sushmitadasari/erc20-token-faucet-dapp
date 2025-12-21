@@ -1,105 +1,68 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.0;
 
 import "./Token.sol";
 
-/**
- * @title TokenFaucet
- * @dev ERC-20 faucet with cooldown, lifetime limits, and pause control
- */
 contract TokenFaucet {
-    /// @notice Token distributed by faucet
-    FaucetToken public immutable token;
+    MyToken public token;
 
-    /// @notice Tokens per claim (100 tokens)
-    uint256 public constant FAUCET_AMOUNT = 100 * 10 ** 18;
+    uint256 public constant FAUCET_AMOUNT = 100 * 10**18;
+    uint256 public constant COOLDOWN_TIME = 24 * 60 * 60; // 24h
+    uint256 public constant MAX_CLAIM_AMOUNT = 1000 * 10**18;
 
-    /// @notice Cooldown period (24 hours)
-    uint256 public constant COOLDOWN_TIME = 24 hours;
-
-    /// @notice Maximum lifetime claim per address (1000 tokens)
-    uint256 public constant MAX_CLAIM_AMOUNT = 1000 * 10 ** 18;
-
-    /// @notice Admin address
-    address public immutable admin;
-
-    /// @notice Faucet paused state
+    address public admin;
     bool private paused;
 
-    /// @notice Last claim timestamp per address
     mapping(address => uint256) public lastClaimAt;
-
-    /// @notice Total claimed amount per address
     mapping(address => uint256) public totalClaimed;
 
-    /// @notice Emitted on successful token claim
     event TokensClaimed(address indexed user, uint256 amount, uint256 timestamp);
-
-    /// @notice Emitted when faucet pause state changes
     event FaucetPaused(bool paused);
 
-    /**
-     * @param tokenAddress Deployed ERC-20 token address
-     */
     constructor(address tokenAddress) {
-        require(tokenAddress != address(0), "Invalid token address");
-        token = FaucetToken(tokenAddress);
+        token = MyToken(tokenAddress);
         admin = msg.sender;
         paused = false;
     }
 
-    /**
-     * @notice Claim tokens from the faucet
-     */
     function requestTokens() external {
         require(!paused, "Faucet is paused");
-        require(canClaim(msg.sender), "Claim conditions not met");
-        require(
-            remainingAllowance(msg.sender) >= FAUCET_AMOUNT,
-            "Lifetime claim limit reached"
-        );
+        require(canClaim(msg.sender), "Cannot claim now");
 
-        // Effects
+        uint256 remaining = remainingAllowance(msg.sender);
+        require(remaining >= FAUCET_AMOUNT, "Exceeds max claim");
+
         lastClaimAt[msg.sender] = block.timestamp;
         totalClaimed[msg.sender] += FAUCET_AMOUNT;
 
-        // Interaction
         token.mint(msg.sender, FAUCET_AMOUNT);
-
         emit TokensClaimed(msg.sender, FAUCET_AMOUNT, block.timestamp);
     }
 
-    /**
-     * @notice Check if user can claim tokens now
-     */
-    function canClaim(address user) public view returns (bool) {
-        if (paused) return false;
-        if (block.timestamp < lastClaimAt[user] + COOLDOWN_TIME) return false;
-        return true;
-    }
+   function canClaim(address user) public view returns (bool) {
+    if (paused) return false;
 
-    /**
-     * @notice Remaining lifetime claim allowance
-     */
+    // Allow first claim
+    if (lastClaimAt[user] == 0) return true;
+
+    if (block.timestamp < lastClaimAt[user] + COOLDOWN_TIME) return false;
+    if (totalClaimed[user] >= MAX_CLAIM_AMOUNT) return false;
+
+    return true;
+}
+
+
     function remainingAllowance(address user) public view returns (uint256) {
-        if (totalClaimed[user] >= MAX_CLAIM_AMOUNT) {
-            return 0;
-        }
+        if (totalClaimed[user] >= MAX_CLAIM_AMOUNT) return 0;
         return MAX_CLAIM_AMOUNT - totalClaimed[user];
     }
 
-    /**
-     * @notice Pause or unpause the faucet (admin only)
-     */
     function setPaused(bool _paused) external {
-        require(msg.sender == admin, "Only admin");
+        require(msg.sender == admin, "Only admin can pause");
         paused = _paused;
-        emit FaucetPaused(_paused);
+        emit FaucetPaused(paused);
     }
 
-    /**
-     * @notice Check if faucet is paused
-     */
     function isPaused() external view returns (bool) {
         return paused;
     }

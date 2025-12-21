@@ -1,30 +1,21 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/access/AccessControl.sol";
 
-contract FaucetToken is ERC20 {
-    uint256 public constant MAX_SUPPLY = 1_000_000 * 10 ** 18;
+contract MyToken is ERC20, AccessControl {
+    uint256 public constant MAX_SUPPLY = 1_000_000 * 10**18;
+    bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
 
-    address public faucet;
-    address public immutable owner;
-
-    constructor() ERC20("Faucet Token", "FAU") {
-        owner = msg.sender;
-    }
-
-    function setFaucet(address _faucet) external {
-        require(msg.sender == owner, "Only owner");
-        require(faucet == address(0), "Faucet already set");
-        require(_faucet != address(0), "Invalid faucet address");
-
-        faucet = _faucet;
+    constructor(address faucet) ERC20("YourToken", "YTKN") {
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _grantRole(MINTER_ROLE, faucet);
     }
 
     function mint(address to, uint256 amount) external {
-        require(msg.sender == faucet, "Only faucet can mint");
-        require(totalSupply() + amount <= MAX_SUPPLY, "Max supply exceeded");
-
+        require(hasRole(MINTER_ROLE, msg.sender), "Caller is not minter");
+        require(totalSupply() + amount <= MAX_SUPPLY, "Exceeds max supply");
         _mint(to, amount);
     }
 }

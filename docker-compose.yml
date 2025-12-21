@@ -1,0 +1,13 @@
+version: '3.8'
+
+# docker-compose.yml
+services:
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_TOKEN_ADDRESS: ${VITE_TOKEN_ADDRESS}
+        VITE_FAUCET_ADDRESS: ${VITE_FAUCET_ADDRESS}
+        VITE_RPC_URL: ${VITE_RPC_URL}
+    ports:
+      - "3000:80"
