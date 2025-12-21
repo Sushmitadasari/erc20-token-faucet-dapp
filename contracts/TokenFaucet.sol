@@ -27,7 +27,16 @@ contract TokenFaucet {
 
     function requestTokens() external {
         require(!paused, "Faucet is paused");
-        require(canClaim(msg.sender), "Cannot claim now");
+        
+        // Check if user has reached lifetime limit
+        if (totalClaimed[msg.sender] >= MAX_CLAIM_AMOUNT) {
+            require(false, "Lifetime claim limit reached");
+        }
+        
+        // Check cooldown
+        if (lastClaimAt[msg.sender] != 0) {
+            require(block.timestamp >= lastClaimAt[msg.sender] + COOLDOWN_TIME, "Claim conditions not met");
+        }
 
         uint256 remaining = remainingAllowance(msg.sender);
         require(remaining >= FAUCET_AMOUNT, "Exceeds max claim");
@@ -45,10 +54,11 @@ contract TokenFaucet {
     // Allow first claim
     if (lastClaimAt[user] == 0) return true;
 
-    if (block.timestamp < lastClaimAt[user] + COOLDOWN_TIME) return false;
-    if (totalClaimed[user] >= MAX_CLAIM_AMOUNT) return false;
+    // Check cooldown and lifetime limit
+    bool cooldownPassed = block.timestamp >= lastClaimAt[user] + COOLDOWN_TIME;
+    bool withinLimit = totalClaimed[user] < MAX_CLAIM_AMOUNT;
 
-    return true;
+    return cooldownPassed && withinLimit;
 }
 
 
@@ -58,7 +68,7 @@ contract TokenFaucet {
     }
 
     function setPaused(bool _paused) external {
-        require(msg.sender == admin, "Only admin can pause");
+        require(msg.sender == admin, "Only admin");
         paused = _paused;
         emit FaucetPaused(paused);
     }

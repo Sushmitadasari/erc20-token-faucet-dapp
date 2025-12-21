@@ -51,7 +51,7 @@ I built this to demonstrate how a modern Web3 stack works—from writing secure 
 First, grab the code and install the dependencies for both the backend and the frontend:
 
 ```bash
-git clone [https://github.com/your-username/Full-Stack-ERC-20-Token-Faucet-DApp.git](https://github.com/your-username/Full-Stack-ERC-20-Token-Faucet-DApp.git)
+git clone [https://github.com/Sushmitadasari/erc20-token-faucet-dapp]
 cd Full-Stack-ERC-20-Token-Faucet-DApp
 
 # Install Hardhat dependencies

@@ -12,9 +12,9 @@ describe("Token Faucet DApp", function () {
   beforeEach(async function () {
   [owner, user1, user2] = await ethers.getSigners();
 
-  // Deploy token WITHOUT faucet first (no constructor args)
-  const TokenFactory = await ethers.getContractFactory("FaucetToken");
-  token = await TokenFactory.deploy();
+  // Deploy token with a placeholder faucet address first
+  const TokenFactory = await ethers.getContractFactory("MyToken");
+  token = await TokenFactory.deploy(ethers.ZeroAddress);
   await token.waitForDeployment();
 
   // Deploy faucet with token address
@@ -22,8 +22,9 @@ describe("Token Faucet DApp", function () {
   faucet = await FaucetFactory.deploy(await token.getAddress());
   await faucet.waitForDeployment();
 
-  // Set faucet in token (one-time)
-  await token.setFaucet(await faucet.getAddress());
+  // Grant minter role to faucet
+  const MINTER_ROLE = await token.MINTER_ROLE();
+  await token.grantRole(MINTER_ROLE, await faucet.getAddress());
 });
 
   /* -------------------------------------------------- */
