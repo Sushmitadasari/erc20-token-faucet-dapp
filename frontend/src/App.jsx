@@ -7,16 +7,33 @@ function App() {
   const [balance, setBalance] = useState("0");
   const [eligible, setEligible] = useState(false);
   const [allowance, setAllowance] = useState("0");
+  const [paused, setPaused] = useState(false);
+  const [lastClaimAt, setLastClaimAt] = useState("0");
+  const [totalClaimed, setTotalClaimed] = useState("0");
+  const [cooldown, setCooldown] = useState("0");
+  const [maxClaim, setMaxClaim] = useState("0");
   const [loading, setLoading] = useState(false);
 
   const refresh = async (addr) => {
-    const bal = await window.__EVAL__.getBalance(addr);
-    const can = await window.__EVAL__.canClaim(addr);
-    const rem = await window.__EVAL__.getRemainingAllowance(addr);
+    const [bal, can, rem, isPausedFlag, lastClaimTs, totalClaimedAmt, cdTime, maxAmt] = await Promise.all([
+      window.__EVAL__.getBalance(addr),
+      window.__EVAL__.canClaim(addr),
+      window.__EVAL__.getRemainingAllowance(addr),
+      window.__EVAL__.isPaused(),
+      window.__EVAL__.getLastClaimAt(addr),
+      window.__EVAL__.getTotalClaimed(addr),
+      window.__EVAL__.getCooldownTime(),
+      window.__EVAL__.getMaxClaimAmount(),
+    ]);
 
     setBalance(bal);
     setEligible(can);
     setAllowance(rem);
+    setPaused(isPausedFlag);
+    setLastClaimAt(lastClaimTs);
+    setTotalClaimed(totalClaimedAmt);
+    setCooldown(cdTime);
+    setMaxClaim(maxAmt);
   };
 
   const handleConnect = async () => {
@@ -73,6 +90,20 @@ function App() {
               )}
             </div>
 
+            {!eligible && (
+              <div className="helper">
+                {paused && <div>Faucet is paused by admin.</div>}
+                {!paused && lastClaimAt !== "0" && Number(cooldown) > 0 && (
+                  <div>
+                    Cooldown: try again in {formatCooldown(lastClaimAt, cooldown)}.
+                  </div>
+                )}
+                {!paused && Number(totalClaimed) >= Number(maxClaim) && (
+                  <div>Lifetime limit reached ({Number(maxClaim) / 1e18} tokens).</div>
+                )}
+              </div>
+            )}
+
             <button
               className="primary"
               disabled={!eligible || loading}
@@ -90,3 +121,21 @@ function App() {
 }
 
 export default App;
+
+function formatCooldown(lastClaimTs, cooldownSeconds) {
+  const last = Number(lastClaimTs);
+  const cooldown = Number(cooldownSeconds);
+  const now = Math.floor(Date.now() / 1000);
+  const remaining = last + cooldown - now;
+  if (remaining <= 0) return "a moment";
+
+  const hours = Math.floor(remaining / 3600);
+  const minutes = Math.floor((remaining % 3600) / 60);
+  const seconds = remaining % 60;
+
+  const parts = [];
+  if (hours) parts.push(`${hours}h`);
+  if (minutes) parts.push(`${minutes}m`);
+  if (!hours && !minutes) parts.push(`${seconds}s`);
+  return parts.join(" ");
+}
